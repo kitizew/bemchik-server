@@ -1,29 +1,31 @@
-use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
+use lettre::message::header::ContentType;
+use lettre::transport::smtp::authentication::Credentials;
+use lettre::{Message, SmtpTransport, Transport};
 
-#[get("/")]
-async fn hello() -> impl Responder {
-    HttpResponse::Ok().body("Hello world!")
-}
+fn main(){
+    let to_user = "jura.kupetskyi@gmail.com";
+    let code = "444";
+    let text = format!("<h1>Ваш код підтвердження {code}</h1>");
 
-#[post("/echo")]
-async fn echo(req_body: String) -> impl Responder {
-    HttpResponse::Ok().body(req_body)
-}
+    let email = Message::builder()
+        .from("bemchik <napevnotvink@gmail.com>".parse().unwrap())
+        .to(to_user.parse().unwrap())
+        .subject("Код підтвердження")
+        .header(ContentType::TEXT_HTML)
+        .body(String::from(text))
+        .unwrap();
 
-async fn manual_hello() -> impl Responder {
-    HttpResponse::Ok().body("Hey there!")
-}
+    let creds = Credentials::new("napevnotvink@gmail.com".to_owned(), "xbey tngw qbma pgly".to_owned());
 
+    // Open a remote connection to gmail
+    let mailer = SmtpTransport::relay("smtp.gmail.com")
+        .unwrap()
+        .credentials(creds)
+        .build();
 
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
-    HttpServer::new(|| {
-        App::new()
-            .service(hello)
-            .service(echo)
-            .route("/hey", web::get().to(manual_hello))
-    })
-    .bind(("127.0.0.1", 8080))?
-    .run()
-    .await
+    // Send the email
+    match mailer.send(&email) {
+        Ok(_) => println!("Email sent successfully!"),
+        Err(e) => panic!("Could not send email: {e:?}"),
+    }
 }
